@@ -1,0 +1,84 @@
+# Week 4 Practical Machine Learning Assignment
+
+## Introduction
+
+The goal of this project is to predict the manner in which they did the exercise. This is the “classe” variable in the training set. I will create a report describing how I have built my model, how I have used cross validation, what I think the expected out of sample error is, and why I have made the choices I did. I will also be using the prediction model to predict 20 different test cases.
+
+## Loading packages and data
+
+```{r,results='hide'}
+## Loading packages
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(gbm)
+
+## Loading data
+training <- read.csv(url("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"))
+testing  <- read.csv(url("http://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"))
+
+```
+
+## Cleaning the data
+
+```{r}
+## Removing variables with zero variance
+
+non_zero_var <- nearZeroVar(training)
+training_data <- training[,-non_zero_var]
+testing_data <- testing[,-non_zero_var]
+
+## Removing non numeric variables
+
+training_data <- training_data[,-(1:5)]
+testing_data <- testing_data[,-(1:5)]
+
+## Removing variables with NA values
+
+na_val_col <- sapply(training_data, function(x) mean(is.na(x))) > 0.95
+
+training_data <- training_data[,na_val_col == FALSE]
+testing_data <- testing_data[,na_val_col == FALSE]
+dim(training_data)
+dim(testing_data)
+```
+
+## Partitioning the data
+
+```{r}
+inTrain <- createDataPartition(training_data$classe, p=0.7, list=FALSE)
+trainset <- training_data[inTrain,]
+testset <- training_data[-inTrain,]
+testset$classe <- as.factor(testset$classe) ## Converting the class from character to factor
+
+```
+
+## Random Forest
+
+```{r}
+controlRF <- trainControl(method="cv", number=3, verboseIter=FALSE)
+RF_modfit <- train(classe ~ ., data = trainset, method = "rf", trControl=controlRF)
+RF_prediction <- predict(RF_modfit, testset)
+RF_pred_conf <- confusionMatrix(RF_prediction, testset$classe)
+RF_pred_conf
+
+```
+
+## Gradient Boosting Model
+
+```{r}
+controlGBM <- trainControl(method = "repeatedcv", number = 5, repeats = 1)
+GBM_modfit <- train(classe ~ ., data = trainset, method = "gbm", verbose = FALSE,trControl = controlGBM)
+GBM_prediction <- predict(GBM_modfit, testset)
+GBM_pred_conf <- confusionMatrix(GBM_prediction, testset$classe)
+GBM_pred_conf
+```
+
+The accuracy of Random Forest model is greater than that of Gradient Boosting Model. So we will be using Random Forest model to answer the questions in the quiz
+
+## Applying the predictor to test data
+```{r}
+Final_prediction <- predict(RF_modfit,testing_data )
+Final_prediction
+```
